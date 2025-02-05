@@ -27,7 +27,7 @@ function find_code() {
 # There isn't any direct cuda code in the tests, but we still want to run our
 # own sed replacements and want a prehip file for what they were before.
 declare -a srcs=(
-    $(find_code src include tests third_party/HugeCTR/gpu_cache)
+    $(find_code src include third_party/cccl third_party/cuco tests third_party/HugeCTR/gpu_cache)
 )
 
 declare -a log_files=()
@@ -35,6 +35,11 @@ declare -a log_files=()
 log_file="$(mktemp --tmpdir hipify_tensoradapter.XXX.log)"
 log_files+=("${log_file}")
 ( set -x ; script/hipify-tensoradapter.py &> "${log_file}" ) &
+
+log_file="$(mktemp --tmpdir hipify_graphbolt.XXX.log)"
+log_files+=("${log_file}")
+( set -x ; script/hipify-graphbolt.py &> "${log_file}" ) &
+
 
 for src in ${srcs[@]}; do
     log_file="$(mktemp --tmpdir hipify_${src//\//_}.XXX.log)"
@@ -49,14 +54,19 @@ wait
 cat "${log_files[@]}" > "${HIPIFY_LOG}" && rm "${log_files[@]}"
 echo "Logs written to ${HIPIFY_LOG}"
 
+declare -a all_srcs=(
+    $(find_code src include third_party/cccl third_party/cuco tests third_party/HugeCTR/gpu_cache tensoradapter graphbolt)
+)
 # Additional fixes for project-specific things and things hipify misses or gets
 # wrong.
-for src in ${srcs[@]}; do
+for src in ${all_srcs[@]}; do
     sed -i 's@#include <hipblas.h>@#include <hipblas/hipblas.h>@' $src
     sed -i 's@#include <hipsparse.h>@#include <hipsparse/hipsparse.h>@' $src
     sed -i 's@#include <cuda_fp8.h>@#include <hip/hip_fp8.h>@' $src
     sed -i 's@#include <cuda_bf16.h>@#include <hip/hip_bf16.h>@' $src
     sed -i 's@\bDGL_USE_CUDA\b@DGL_USE_ROCM@g' $src
+    # TODO(tpopp): changed
+    sed -i 's@\bGRAPHBOLT_USE_CUDA\b@GRAPHBOLT_USE_ROCM@g' $src
     sed -i 's@\bCUB_VERSION\b@HIPCUB_VERSION@g' $src
     sed -i 's@\bCUDART_ZERO_BF16\b@HIPRT_ZERO_BF16@g' $src
     sed -i 's@\bCUDART_INF_BF16\b@HIPRT_INF_BF16@g' $src
@@ -68,6 +78,9 @@ for src in ${srcs[@]}; do
     # hipify uses the old one
     sed -i 's@\bhip_bfloat16\b@__hip_bfloat16@g' $src
     sed -i 's@\b__trap();@abort();@' $src
+
+    # Not sure why hipify is changing the import name, though the file name is the original.
+    sed -i 's@_hip.h@.h@' $src
 
     # If no changes were made, delete the prehip file.
     if cmp -s "${src}" "${src}.prehip"; then

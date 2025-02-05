@@ -12,7 +12,7 @@ function find_prehip() {
 }
 
 declare -a prehip_srcs=(
-    $(find_prehip src include tests third_party/HugeCTR/gpu_cache tensoradapter)
+    $(find_prehip  src include third_party/cccl third_party/cuco tests third_party/HugeCTR/gpu_cache tensoradapter graphbolt)
 )
 
 for prehip_src in ${prehip_srcs[@]}; do

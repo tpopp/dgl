@@ -1,12 +1,21 @@
 cmake_minimum_required(VERSION 3.18)
 project(graphbolt C CXX)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(USE_CUDA)
   message(STATUS "Build graphbolt with CUDA support")
   enable_language(CUDA)
   add_definitions(-DGRAPHBOLT_USE_CUDA)
+elseif(USE_ROCM)
+  # TODO(tpopp): have correct ROCM_DIR
+  include(cmake/util/FindROCm.cmake)
+  include(cmake/modules/ROCm.cmake)
+  add_definitions(-DGRAPHBOLT_USE_ROCM)
+  add_definitions(-DDGL_USE_ROCM)
+  set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -Wno-instantiation-after-specialization")
+  enable_language(HIP)
+  message(STATUS "TPOPP CMAKE_PREFIX: ${CMAKE_PREFIX_PATH}")
 endif()
 
 # For windows, define NOMINMAX to avoid conflict with std::min/max
@@ -40,9 +49,10 @@ set(Torch_DIR "${TORCH_PREFIX}/Torch")
 message(STATUS "Setting directory to ${Torch_DIR}")
 
 find_package(Torch REQUIRED)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TORCH_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb")
+# TODO(tpopp): Changed here
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TORCH_C_FLAGS} -Wno-error")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -Wno-error")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb -Wno-error")
 
 set(LIB_GRAPHBOLT_NAME "graphbolt_pytorch_${TORCH_VER}")
 option(BUILD_WITH_TASKFLOW "Use taskflow as parallel backend" ON)
@@ -73,14 +83,23 @@ if(USE_CUDA)
   set(LIB_GRAPHBOLT_CUDA_NAME "${LIB_GRAPHBOLT_NAME}_cuda")
 endif()
 
+# TODO(tpopp): changed
+if(USE_ROCM)
+  file(GLOB BOLT_CUDA_SRC
+    ${BOLT_DIR}/cuda/*.cu
+    ${BOLT_DIR}/cuda/*.cc
+  )
+  add_definitions(-DHIP_ENABLE_WARP_SYNC_BUILTINS)
+  list(APPEND BOLT_SRC ${BOLT_CUDA_SRC})
+  set(LIB_GRAPHBOLT_CUDA_NAME "${LIB_GRAPHBOLT_NAME}_rocm")
+  set_source_files_properties(${BOLT_CUDA_EXTENSION_SRC} PROPERTIES LANGUAGE HIP)
+endif()
+
+
 add_library(${LIB_GRAPHBOLT_NAME} SHARED ${BOLT_SRC} ${BOLT_HEADERS})
 include_directories(BEFORE ${BOLT_DIR}
                            ${BOLT_HEADERS}
-                           # For CXX20 features:
-                           # `std::atomic_ref`, `std::counting_semaphore`
-                           "../third_party/cccl/libcudacxx/include"
-                           "../third_party/pcg/include"
-                           "../third_party/tsl_robin_map/include")
+                           )
 target_link_libraries(${LIB_GRAPHBOLT_NAME} "${TORCH_LIBRARIES}")
 if(BUILD_WITH_TASKFLOW)
   target_include_directories(${LIB_GRAPHBOLT_NAME} PRIVATE "../third_party/taskflow")
@@ -156,6 +175,40 @@ if(USE_CUDA)
 
   target_link_libraries(${LIB_GRAPHBOLT_NAME} ${LIB_GRAPHBOLT_CUDA_NAME})
 endif()
+
+# TODO(tpopp): changed
+
+if(USE_ROCM)
+  # TODO(tpopp): hard dependency on kineto had to be manually changed in pip installed cmake
+  file(GLOB BOLT_CUDA_EXTENSION_SRC
+    ${BOLT_DIR}/cuda/extension/*.cu
+    ${BOLT_DIR}/cuda/extension/*.cc
+    ../third_party/HugeCTR/gpu_cache/src/nv_gpu_cache.cu
+  )
+  set_source_files_properties(${BOLT_CUDA_EXTENSION_SRC} PROPERTIES LANGUAGE HIP)
+  # Until https://github.com/NVIDIA/cccl/issues/1083 is resolved, we need to
+  # compile the cuda/extension folder with Volta+ CUDA architectures.
+  add_library(${LIB_GRAPHBOLT_CUDA_NAME} STATIC ${BOLT_CUDA_EXTENSION_SRC} ${BOLT_HEADERS} ${DGL_HIP_SRC})
+  target_link_libraries(${LIB_GRAPHBOLT_CUDA_NAME} PRIVATE "${TORCH_LIBRARIES}")
+  dgl_config_rocm(LIB_GRAPHBOLT_CUDA_NAME)
+
+  set_target_properties(${LIB_GRAPHBOLT_NAME} PROPERTIES CUDA_STANDARD 17)
+  set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES CUDA_STANDARD 17)
+  # set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES_FILTERED}")
+  set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+  # Enables libcudacxx for gpu_cache. 
+  include_directories(AFTER "../third_party/HugeCTR/gpu_cache/include")
+  message(STATUS "Build graphbolt extension with HugeCTR GPU embedding cache.")
+  include_directories(BEFORE
+                      "../third_party/cccl/thrust"
+                      "../third_party/cccl/cub"
+                      "../third_party/cuco/include")
+
+  message(STATUS "Use external CCCL library for a consistent API and performance for graphbolt.")
+  
+  target_link_libraries(${LIB_GRAPHBOLT_NAME} ${LIB_GRAPHBOLT_CUDA_NAME})
+endif()
+
 
 # The Torch CMake configuration only sets up the path for the MKL library when
 # using the conda distribution. The following is a workaround to address this

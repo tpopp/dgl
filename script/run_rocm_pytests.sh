@@ -7,16 +7,18 @@
 
 
 bash ./script/run_pytest.sh -g \
-    tests/python/pytorch/ \
-    --ignore=tests/python/pytorch/graphbolt \
-    --ignore=tests/python/pytorch/distributed \
-    --deselect=tests/python/pytorch/dataloading/test_dataloader.py::test_distributed_dataloaders
+    tests/python/pytorch/graphbolt # \
+    # --ignore=tests/python/pytorch/graphbolt \
+    # --ignore=tests/python/pytorch/distributed \
+    # --deselect=tests/python/pytorch/dataloading/test_dataloader.py::test_distributed_dataloaders
 
 final_ret=$?
+ 
+exit $final_ret
 
 bash ./script/run_pytest.sh -g \
-    tests/python/common/ \
-    --ignore=tests/python/common/test_partition.py
+    tests/python/common/ #  \
+    # --ignore=tests/python/common/test_partition.py
 
 ret=$?
 if (( ret != 0 && ret > final_ret )); then
