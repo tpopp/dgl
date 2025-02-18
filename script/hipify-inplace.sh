@@ -16,12 +16,12 @@ cd "${DGL_HOME}"
 HIPIFY_LOG="/tmp/hipify-inplace.log"
 
 function find_code() {
-    find $@ -name '*.cu' -o -name '*.CU'
-    find $@ -name '*.cpp' -o -name '*.cxx' -o -name '*.c' -o -name '*.cc'
-    find $@ -name '*.CPP' -o -name '*.CXX' -o -name '*.C' -o -name '*.CC'
-    find $@ -name '*.cuh' -o -name '*.CUH'
-    find $@ -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.inl' -o -name '*.hxx' -o -name '*.hdl'
-    find $@ -name '*.H' -o -name '*.HPP' -o -name '*.INC' -o -name '*.INL' -o -name '*.HXX' -o -name '*.HDL'
+    find $@ -type f -name '*.cu' -o -name '*.CU'
+    find $@ -type f -name '*.cpp' -o -name '*.cxx' -o -name '*.c' -o -name '*.cc'
+    find $@ -type f -name '*.CPP' -o -name '*.CXX' -o -name '*.C' -o -name '*.CC'
+    find $@ -type f -name '*.cuh' -o -name '*.CUH'
+    find $@ -type f -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.inl' -o -name '*.hxx' -o -name '*.hdl'
+    find $@ -type f -name '*.H' -o -name '*.HPP' -o -name '*.INC' -o -name '*.INL' -o -name '*.HXX' -o -name '*.HDL'
 }
 
 # There isn't any direct cuda code in the tests, but we still want to run our
@@ -55,32 +55,28 @@ cat "${log_files[@]}" > "${HIPIFY_LOG}" && rm "${log_files[@]}"
 echo "Logs written to ${HIPIFY_LOG}"
 
 declare -a all_srcs=(
-    $(find_code src include third_party/cccl third_party/cuco tests third_party/HugeCTR/gpu_cache tensoradapter graphbolt)
+    $(find_code src include  tests third_party/HugeCTR/gpu_cache tensoradapter graphbolt)
 )
 # Additional fixes for project-specific things and things hipify misses or gets
 # wrong.
 for src in ${all_srcs[@]}; do
-    sed -i 's@#include <hipblas.h>@#include <hipblas/hipblas.h>@' $src
-    sed -i 's@#include <hipsparse.h>@#include <hipsparse/hipsparse.h>@' $src
-    sed -i 's@#include <cuda_fp8.h>@#include <hip/hip_fp8.h>@' $src
-    sed -i 's@#include <cuda_bf16.h>@#include <hip/hip_bf16.h>@' $src
-    sed -i 's@\bDGL_USE_CUDA\b@DGL_USE_ROCM@g' $src
-    # TODO(tpopp): changed
-    sed -i 's@\bGRAPHBOLT_USE_CUDA\b@GRAPHBOLT_USE_ROCM@g' $src
-    sed -i 's@\bCUB_VERSION\b@HIPCUB_VERSION@g' $src
-    sed -i 's@\bCUDART_ZERO_BF16\b@HIPRT_ZERO_BF16@g' $src
-    sed -i 's@\bCUDART_INF_BF16\b@HIPRT_INF_BF16@g' $src
-    sed -i 's@\bthrust::cuda::par@thrust::hip::par@g' $src
-    sed -i 's@\b__nv_fp8_e4m3\b@__hip_fp8_e4m3@g' $src
-    sed -i 's@\b__nv_fp8_e5m2\b@__hip_fp8_e5m2@g' $src
-    sed -i 's@\bCUBLAS_GEMM_DEFAULT_TENSOR_OP\b@HIPBLAS_GEMM_DEFAULT@g' $src
-    sed -i 's@\bcurand4\b@hiprand4@g' $src
-    # hipify uses the old one
-    sed -i 's@\bhip_bfloat16\b@__hip_bfloat16@g' $src
-    sed -i 's@\b__trap();@abort();@' $src
-
-    # Not sure why hipify is changing the import name, though the file name is the original.
-    sed -i 's@_hip.h@.h@' $src
+    sed -i -e 's@#include <hipblas.h>@#include <hipblas/hipblas.h>@' \
+        -e 's@#include <hipsparse.h>@#include <hipsparse/hipsparse.h>@' \
+        -e 's@#include <cuda_fp8.h>@#include <hip/hip_fp8.h>@' \
+        -e 's@#include <cuda_bf16.h>@#include <hip/hip_bf16.h>@' \
+        -e 's@\bDGL_USE_CUDA\b@DGL_USE_ROCM@g' \
+        -e 's@\bGRAPHBOLT_USE_CUDA\b@GRAPHBOLT_USE_ROCM@g' `# TODO(tpopp): changed` \
+        -e 's@\bCUB_VERSION\b@HIPCUB_VERSION@g' \
+        -e 's@\bCUDART_ZERO_BF16\b@HIPRT_ZERO_BF16@g' \
+        -e 's@\bCUDART_INF_BF16\b@HIPRT_INF_BF16@g' \
+        -e 's@\bthrust::cuda::par@thrust::hip::par@g' \
+        -e 's@\b__nv_fp8_e4m3\b@__hip_fp8_e4m3@g' \
+        -e 's@\b__nv_fp8_e5m2\b@__hip_fp8_e5m2@g' \
+        -e 's@\bCUBLAS_GEMM_DEFAULT_TENSOR_OP\b@HIPBLAS_GEMM_DEFAULT@g' \
+        -e 's@\bcurand4\b@hiprand4@g' \
+        -e 's@\bhip_bfloat16\b@__hip_bfloat16@g' `# hipify uses the old one` \
+        -e 's@\b__trap();@abort();@' \
+        -e 's@_hip.h@.h@' $src # Not sure why hipify is changing the import name, though the file name is the original.
 
     # If no changes were made, delete the prehip file.
     if cmp -s "${src}" "${src}.prehip"; then

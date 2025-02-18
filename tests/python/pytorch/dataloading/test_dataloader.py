@@ -264,6 +264,9 @@ def _ddp_runner(proc_id, nprocs, g, data, args):
     else:
         device = torch.device(proc_id)
         torch.cuda.set_device(device)
+        # TODO(tpopp): torch.cuda.set_device ignored?
+        os.environ["HIP_VISIBLE_DEVICES"] = str(device).split(":")[1]
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(device).split(":")[1]
     if mode == "pure_gpu":
         g = g.to(F.cuda())
     if mode in ("cpu", "uva_cpu_indices"):

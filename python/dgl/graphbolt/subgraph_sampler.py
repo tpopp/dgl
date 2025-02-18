@@ -47,7 +47,7 @@ def all_to_all(outputs, inputs, group=None, async_op=False):
     outputs = shift_fn(list(outputs))
     inputs = shift_fn(list(inputs))
     if outputs[0].is_cuda:
-        return thd.all_to_all(outputs, inputs, group, async_op)
+      return thd.all_to_all(outputs, inputs, group, async_op)
     # gloo backend will be used.
     outputs_single = torch.cat(outputs)
     output_split_sizes = [o.size(0) for o in outputs]
@@ -214,6 +214,7 @@ class SubgraphSampler(MiniBatchTransformer):
     def _seeds_cooperative_exchange_1_wait_future(minibatch):
         world_size = thd.get_world_size()
         seeds = minibatch._seed_nodes
+        dev = minibatch.seeds.get_device()
         is_homogeneous = not isinstance(seeds, dict)
         if is_homogeneous:
             seeds = {"_N": seeds}
@@ -235,7 +236,7 @@ class SubgraphSampler(MiniBatchTransformer):
             minibatch._seeds_offsets = sorted_offsets
         else:
             minibatch._seeds_offsets = {"_N": minibatch._seeds_offsets}
-        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64)
+        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64, device=dev)
         for i, offsets in enumerate(minibatch._seeds_offsets.values()):
             counts_sent[
                 torch.arange(i, world_size * num_ntypes, num_ntypes)

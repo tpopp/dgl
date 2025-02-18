@@ -103,13 +103,12 @@ from .internal import (
     unique_and_compact_csc_formats,
 )
 
-# TODO(tpopp): changed this
-# if torch.cuda.is_available() and not built_with_cuda():
-#     raise ImportError(
-#         "torch was installed with CUDA support while GraphBolt's CPU version "
-#         "is installed. Consider reinstalling GraphBolt with CUDA support, see "
-#         "installation instructions at https://www.dgl.ai/pages/start.html"
-#     )
+if torch.cuda.is_available() and not built_with_cuda():
+    raise ImportError(
+        "torch was installed with CUDA support while GraphBolt's CPU version "
+        "is installed. Consider reinstalling GraphBolt with CUDA support, see "
+        "installation instructions at https://www.dgl.ai/pages/start.html"
+    )
 
 if torch.cuda.is_available() and WARNING_STR_TO_BE_SHOWN is not None:
     gb_warning(WARNING_STR_TO_BE_SHOWN)

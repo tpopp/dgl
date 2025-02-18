@@ -7,7 +7,7 @@
 
 
 bash ./script/run_pytest.sh -g \
-    tests/python/pytorch/graphbolt # \
+    tests/python/pytorch
     # --ignore=tests/python/pytorch/graphbolt \
     # --ignore=tests/python/pytorch/distributed \
     # --deselect=tests/python/pytorch/dataloading/test_dataloader.py::test_distributed_dataloaders

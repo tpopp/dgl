@@ -15,7 +15,8 @@ def test_unique_and_compact_hetero():
         "n2": torch.tensor([0, 3, 5, 2, 7, 8, 4, 9], device=F.ctx()),
         "n3": torch.tensor([1, 2, 6, 8, 3], device=F.ctx()),
     }
-    if N1.is_cuda and torch.cuda.get_device_capability()[0] < 7:
+    print(f"{N1.is_cuda=} {torch.cuda.get_device_capability()=}")
+    if True or (N1.is_cuda and torch.cuda.get_device_capability()[0] < 7):
         expected_reverse_id = {
             k: v.sort()[1] for k, v in expected_unique.items()
         }

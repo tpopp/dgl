@@ -559,8 +559,9 @@ class CompactPerLayer(MiniBatchTransformer):
         is_homogeneous = not isinstance(seeds_offsets, dict)
         if is_homogeneous:
             seeds_offsets = {"_N": seeds_offsets}
+        dev = minibatch.seeds.get_device()
         num_ntypes = len(seeds_offsets)
-        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64)
+        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64, device=dev)
         for i, offsets in enumerate(seeds_offsets.values()):
             counts_sent[
                 torch.arange(i, world_size * num_ntypes, num_ntypes)

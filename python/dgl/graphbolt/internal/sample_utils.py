@@ -65,6 +65,7 @@ def unique_and_compact(
         size `world_size + 1` and `unique_nodes[offsets[i]: offsets[i + 1]]`
         belongs to the rank `(rank + i) % world_size`.
     """
+    print("TPOPP")
     is_heterogeneous = isinstance(nodes, dict)
 
     if not is_heterogeneous:
@@ -93,6 +94,7 @@ def unique_and_compact(
         def wait(self):
             """Returns the stored value when invoked."""
             results = self.future.wait() if async_op else self.future
+            print(f"TPOPP {results=}")
             ntypes = self.ntypes
             nums = self.nums
             # Ensure there is no memory leak.

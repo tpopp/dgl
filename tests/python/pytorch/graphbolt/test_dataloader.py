@@ -196,7 +196,7 @@ def test_gpu_sampling_DataLoader(
                 edge_feature = minibatch.edge_features[layer_id]["d"]
                 edge_feature_ref = minibatch2.edge_features[layer_id]["d"]
                 if sampler_name == "LayerNeighborSampler":
-                    assert torch.equal(edge_feature, edge_feature_ref)
+                    assert torch.equal(edge_feature, edge_feature_ref), f"{edge_feature=} {edge_feature_ref=}"
     assert len(list(dataloader)) == N // B
 
     if asynchronous and cooperative:

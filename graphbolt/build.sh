@@ -29,13 +29,15 @@ if ! [[ -z "${CUDAARCHS}" ]]; then
   fi
 fi
     
-CMAKE_FLAGS="-DUSE_ROCM=${USE_ROCM} -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_TOOLKIT_ROOT_DIR -DUSE_CUDA=$USE_CUDA -DTORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
+export VERBOSE=1
+export ROCM_PATH="/home/tpopp/rocm/6.3.1/opt/rocm"
+export PATH="${PATH}:/home/tpopp/rocm/6.3.1/opt/rocm/lib/llvm/bin/"
+CMAKE_FLAGS="-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DROCM_ROOT=${ROCM_PATH} -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH} -DUSE_ROCM=${USE_ROCM} -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_TOOLKIT_ROOT_DIR -DUSE_CUDA=$USE_CUDA -DTORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
 echo "graphbolt cmake flags: $CMAKE_FLAGS"
 
 # TODO(tpopp): Added CMAKE_PREFIX_PATH
-export ROCM_PATH="/home/tpopp/rocm/6.3.1/opt/rocm"
 if [ $# -eq 0 ]; then
-  $CMAKE_COMMAND "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" $CMAKE_FLAGS ..
+  $CMAKE_COMMAND "k" $CMAKE_FLAGS ..
   make -j
   cp -v $CPSOURCE $BINDIR/graphbolt
 else
@@ -43,7 +45,7 @@ else
     TORCH_VER=$($PYTHON_INTERP -c 'import torch; print(torch.__version__.split("+")[0])')
     mkdir -p $TORCH_VER
     cd $TORCH_VER
-    $CMAKE_COMMAND "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" $CMAKE_FLAGS -DPYTHON_INTERP=$PYTHON_INTERP ../..
+    $CMAKE_COMMAND $CMAKE_FLAGS -DPYTHON_INTERP=$PYTHON_INTERP ../..
     make -j
     cp -v $CPSOURCE $BINDIR/graphbolt
     cd ..
