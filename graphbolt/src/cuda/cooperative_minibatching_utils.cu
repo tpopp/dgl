@@ -118,17 +118,9 @@ RankSortImpl(
             scatter, values.data_ptr<index_t>(),
             values.data_ptr<index_t>() + values.numel(),
             index_sorted.data_ptr<index_t>(), index.data_ptr<index_t>());
-		// TORCH_CHECK(false, "TPOPP: HERE?");
         return std::make_tuple(
             nodes_sorted, index, offsets, std::move(offsets_event));
       }));
-        // TORCH_CHECK(false, "TPOPP: Error in returning logic.");
-        // return std::make_tuple(
-        //     unique_ids, unique_ids, unique_ids, std::move(unique_ids_offsets_event));
-	// std::cerr << "TPOPP: " << __LINE__ << " : " << std::get<0>(b) << std::endl;
-	// std::cerr << "TPOPP: " << __LINE__ << " : " << std::get<1>(b) << std::endl;
-	// std::cerr << "TPOPP: " << __LINE__ << " : " << std::get<2>(b) << std::endl;
-  // return std::move(b);
 }
 
 std::vector<std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>> RankSort(

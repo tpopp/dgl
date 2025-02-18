@@ -277,7 +277,6 @@ UniqueAndCompactBatchedHashMapBased(
         auto unique_ids_offsets = torch::empty(
             num_batches + 1,
             c10::TensorOptions().dtype(torch::kInt64).pinned_memory(true));
-	// TORCH_CHECK(false, "TPOPP: Error occurs sometime after here");
         {
           auto unique_ids_offsets_dev2 =
               torch::empty_like(unique_ids_offsets_dev);
@@ -302,7 +301,6 @@ UniqueAndCompactBatchedHashMapBased(
           unique_ids_offsets_dev_ptr =
               unique_ids_offsets_dev.data_ptr<int64_t>();
         }
-	// TORCH_CHECK(false, "TPOPP: Error occurs after here, but maybe due to inputs");
         at::cuda::CUDAEvent unique_ids_offsets_event;
         unique_ids_offsets_event.record();
         torch::optional<torch::Tensor> index;
@@ -332,7 +330,6 @@ UniqueAndCompactBatchedHashMapBased(
         unique_ids_offsets_event.synchronize();
         auto unique_ids_offsets_ptr = unique_ids_offsets.data_ptr<int64_t>();
         for (int64_t i = 0; i < num_batches; i++) {
-	  std::cerr << "TPOPP LALA: " << unique_ids << mapped_ids << unique_ids_offsets << std::endl;
           results.emplace_back(
               unique_ids.slice(
                   0, unique_ids_offsets_ptr[i * world_size],
@@ -345,7 +342,6 @@ UniqueAndCompactBatchedHashMapBased(
               unique_ids_offsets.slice(
                   0, i * world_size, (i + 1) * world_size + 1));
         }
-	  // TORCH_CHECK(false, "TPOPP: Error here?");
         return results;
       }));
 }

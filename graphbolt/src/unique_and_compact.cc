@@ -69,12 +69,9 @@ UniqueAndCompactBatched(
           auto a = ops::UniqueAndCompactBatched(
               src_ids, dst_ids, unique_dst_ids, rank, world_size);
 
-  std::cerr << "TPOPP FML: " << std::get<0>(a[0]) << std::get<1>(a[0]) << std::get<2>(a[0]) << std::get<3>(a[0]) << std::endl;
-  // TORCH_CHECK(false, "FML");
 	  return a;
         });
   }
-  TORCH_CHECK(false, "WTF");
   std::vector<
       std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>>
       results;
