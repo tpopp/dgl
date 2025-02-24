@@ -22,11 +22,14 @@ namespace cuda {
  */
 inline int compute_capability(
     int device = cuda::GetCurrentStream().device_index()) {
-  // TODO(tpopp): SmVersion unsupported
-  // int sm_version;
-  // CUDA_RUNTIME_CHECK(cub::SmVersion(sm_version, device));
-  // return sm_version / 10;
+#ifndef GRAPHBOLT_USE_ROCM
+  int sm_version;
+  CUDA_RUNTIME_CHECK(cub::SmVersion(sm_version, device));
+  return sm_version / 10;
+#else
+  // TODO(tpopp): SmVersion unsupported. Assume the normally desired features are available.
   return 70;
+#endif
 };
 
 /**

@@ -30,9 +30,6 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/transform_output_iterator.h>
 
-// TODO(tpopp): debugging aid
-#include <iostream>
-
 #include <algorithm>
 #include <array>
 #include <hipcub/hipcub.hpp>
@@ -557,8 +554,8 @@ c10::intrusive_ptr<sampling::FusedSampledSubgraph> SampleNeighbors(
                       iota,
                       SegmentEndFunc<indptr_t, decltype(sampled_degree)>{
 		      sub_indptr.data_ptr<indptr_t>(), sampled_degree});
-		  // TODO(tpopp): hipCUB/rocprim do not support mixed iterator types. I couldn't find any performant way around this restriction.
-		  // This is almost guaranteed wrong currently
+		  // TODO(tpopp): hipCUB/rocprim do not support mixed iterator types.
+		  //              I couldn't find any performant way around this restriction.
 		  auto sampled_segment_end_device = torch::empty_like(sub_indptr);
 		  THRUST_CALL(
 				  copy_n, sampled_segment_end_it, sub_indptr.size(0)-1,

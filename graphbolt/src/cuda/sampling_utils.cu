@@ -27,7 +27,9 @@
 #include "utils.h"
 
 // TODO(tpopp): cub doesn't work here
+#ifdef GRAPHBOLT_USE_ROCM
 namespace cub = hipcub;
+#endif
 
 namespace graphbolt {
 namespace ops {

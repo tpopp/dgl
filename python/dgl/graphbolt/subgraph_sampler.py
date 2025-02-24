@@ -43,14 +43,11 @@ def all_to_all(outputs, inputs, group=None, async_op=False):
     calling it. The arguments have the permutation
     `rank, ..., world_size - 1, 0, ..., rank - 1` and we make it
     `0, world_size - 1` before calling `thd.all_to_all`."""
-    # TODO(tpopp): Initialize gloo backend if needed because this doesn't work witb newer torch versions.
-    if not (outputs[0].is_cuda or thd.is_gloo_available()):
-        thd.init_process_group('gloo')
     shift_fn = partial(_shift, group=group)
     outputs = shift_fn(list(outputs))
     inputs = shift_fn(list(inputs))
     if outputs[0].is_cuda:
-      return thd.all_to_all(outputs, inputs, group, async_op)
+        return thd.all_to_all(outputs, inputs, group, async_op)
     # gloo backend will be used.
     outputs_single = torch.cat(outputs)
     output_split_sizes = [o.size(0) for o in outputs]
@@ -131,15 +128,6 @@ class SubgraphSampler(MiniBatchTransformer):
         *args,
         **kwargs,
     ):
-        # # TODO(tpopp): seeing if this is the problem. Takes us from 136-> failing
-        # import backend as F
-        # if not thd.is_initialized():
-        #     thd.init_process_group(
-        #             "gloo" if F.ctx() == F.cpu() else "nccl",
-        #             "tcp://127.0.0.1:12347",
-        #             world_size=1,
-        #             rank=0,
-        #             )
         async_op = kwargs.get("asynchronous", False)
         cooperative = kwargs.get("cooperative", False)
         preprocess_fn = partial(
@@ -326,7 +314,6 @@ class SubgraphSampler(MiniBatchTransformer):
         ) = self.sample_subgraphs(
             minibatch._seed_nodes, minibatch._seeds_timestamp
         )
-        # assert False, "Here?"
         return minibatch
 
     def sampling_stages(self, datapipe):

@@ -89,7 +89,6 @@ def test_gpu_sampling_DataLoader(
             else "tcp://127.0.0.1:12345"
         )
         # TODO(tpopp): torch behavior changed in at least version 2.6 and potentially 2.5.
-        # Still to be done, is updating Rfdiffusion to specify the backend as below if needed.
         thd.init_process_group(
                 backend='cpu:gloo,cuda:nccl',
             init_method=init_method,
@@ -199,7 +198,7 @@ def test_gpu_sampling_DataLoader(
                 edge_feature = minibatch.edge_features[layer_id]["d"]
                 edge_feature_ref = minibatch2.edge_features[layer_id]["d"]
                 if sampler_name == "LayerNeighborSampler":
-                    assert torch.equal(edge_feature, edge_feature_ref), f"{edge_feature=} {edge_feature_ref=}"
+                    assert torch.equal(edge_feature, edge_feature_ref)
     assert len(list(dataloader)) == N // B
 
     if asynchronous and cooperative:

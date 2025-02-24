@@ -87,8 +87,13 @@ RankSortImpl(
                                               .dtype(offsets_dev.scalar_type())
                                               .pinned_memory(true));
         CUB_CALL(
-			// TODO(tpopp): ROCm uses Bulk and not DeviceFor::Bulk
-            Bulk, num_batches * world_size + 1,
+#ifndef GRAPHBOLT_USE_ROCM
+            DeviceFor::Bulk
+#else
+            // TODO(tpopp): ROCm uses Bulk and not DeviceFor::Bulk
+            Bulk
+#endif
+            num_batches * world_size + 1,
             [=, part_ids = part_ids_sorted.data_ptr<cuda::part_t>(),
              offsets = offsets.data_ptr<int64_t>()] __device__(int64_t i) {
               const auto batch_id = i / world_size;

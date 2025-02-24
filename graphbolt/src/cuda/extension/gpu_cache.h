@@ -36,7 +36,11 @@ class GpuCache : public torch::CustomClassHolder {
   using key_t = long long;
   constexpr static int set_associativity = 2;
   // TODO(tpopp): changed hard coded value
+#ifndef GRAPHBOLT_USE_ROCM
+  constexpr static int WARP_SIZE = 32;
+#else
   constexpr static int WARP_SIZE = 64;
+#endif
   constexpr static int bucket_size = WARP_SIZE * set_associativity;
   using gpu_cache_t = ::gpu_cache::gpu_cache<
       key_t, uint64_t, std::numeric_limits<key_t>::max(), set_associativity,

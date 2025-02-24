@@ -410,7 +410,6 @@ def test_multiprocess_sparse_adam(num_workers, backend, zero_comm):
     assert F.allclose(dgl_weight, torch_weight)
 
 
-# @unittest.skipIf(True, reason="TODO(tpopp): This does not pass on ROCm")
 @unittest.skipIf(os.name == "nt", reason="Do not support windows yet")
 @unittest.skipIf(
     F.ctx().type == "cpu", reason="cuda tensor is not supported for cpu"

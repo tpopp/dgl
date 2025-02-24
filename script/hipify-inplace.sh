@@ -65,7 +65,7 @@ for src in ${all_srcs[@]}; do
         -e 's@#include <cuda_fp8.h>@#include <hip/hip_fp8.h>@' \
         -e 's@#include <cuda_bf16.h>@#include <hip/hip_bf16.h>@' \
         -e 's@\bDGL_USE_CUDA\b@DGL_USE_ROCM@g' \
-        -e 's@\bGRAPHBOLT_USE_CUDA\b@GRAPHBOLT_USE_ROCM@g' `# TODO(tpopp): changed` \
+        -e 's@\bGRAPHBOLT_USE_CUDA\b@GRAPHBOLT_USE_ROCM@g' `# TODO(tpopp): added` \
         -e 's@\bCUB_VERSION\b@HIPCUB_VERSION@g' \
         -e 's@\bCUDART_ZERO_BF16\b@HIPRT_ZERO_BF16@g' \
         -e 's@\bCUDART_INF_BF16\b@HIPRT_INF_BF16@g' \

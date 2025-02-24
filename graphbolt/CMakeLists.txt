@@ -23,7 +23,7 @@ elseif(USE_ROCM)
     prim
     OVERRIDE_FIND_PACKAGE
     GIT_REPOSITORY https://github.com/ROCm/rocPRIM.git
-    GIT_TAG        develop
+    GIT_TAG        16ba76dfb738f46e45e088d39da1b9af4ac21115
   )
   FetchContent_MakeAvailable(prim)
 
@@ -39,7 +39,8 @@ elseif(USE_ROCM)
     OVERRIDE_FIND_PACKAGE
     GIT_REPOSITORY https://github.com/tpopp/hipCUB.git
     # TODO(tpopp): release 6.3 doesn't have DeviceFor
-    GIT_TAG        dev/tpopp/dgl
+    #              develop branch doesn't expose DeviceFor
+    GIT_TAG        f342111197dd020f1c4210b16aa550b08992e97b
   )
   FetchContent_MakeAvailable(hipcub)
 
@@ -70,7 +71,7 @@ elseif(USE_ROCM)
     cuco
     OVERRIDE_FIND_PACKAGE
     GIT_REPOSITORY https://github.com/tpopp/hipCollections.git
-    GIT_TAG        dev/tpopp/dgl
+    GIT_TAG        6e31da8fd309f229d28adde8583a30bb4efaf1b7
   )
 
   FetchContent_MakeAvailable(libhipcxx)
@@ -111,9 +112,9 @@ message(STATUS "Setting directory to ${Torch_DIR}")
 
 find_package(Torch REQUIRED)
 # TODO(tpopp): Changed here
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TORCH_C_FLAGS} -Wno-error")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -Wno-error")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb -Wno-error")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TORCH_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -ggdb")
 
 set(LIB_GRAPHBOLT_NAME "graphbolt_pytorch_${TORCH_VER}")
 option(BUILD_WITH_TASKFLOW "Use taskflow as parallel backend" ON)
@@ -144,7 +145,6 @@ if(USE_CUDA)
   set(LIB_GRAPHBOLT_CUDA_NAME "${LIB_GRAPHBOLT_NAME}_cuda")
 endif()
 
-# TODO(tpopp): changed
 if(USE_ROCM)
   file(GLOB BOLT_CUDA_SRC
     ${BOLT_DIR}/cuda/*.cu
@@ -159,7 +159,15 @@ endif()
 add_library(${LIB_GRAPHBOLT_NAME} SHARED ${BOLT_SRC} ${BOLT_HEADERS})
 include_directories(BEFORE ${BOLT_DIR}
                            ${BOLT_HEADERS}
-                           )
+			   # TODO(tpopp): this is cuda specific
+			   "../third_party/pcg/include"
+			   "../third_party/tsl_robin_map/include")
+if(NOT USE_ROCM)
+include_directories(BEFORE # For CXX20 features:
+			   # `std::atomic_ref`, `std::counting_semaphore`
+			   "../third_party/cccl/libcudacxx/include"
+			   )
+endif()
 target_link_libraries(${LIB_GRAPHBOLT_NAME} "${TORCH_LIBRARIES}")
 if(BUILD_WITH_TASKFLOW)
   target_include_directories(${LIB_GRAPHBOLT_NAME} PRIVATE "../third_party/taskflow")
@@ -236,66 +244,45 @@ if(USE_CUDA)
   target_link_libraries(${LIB_GRAPHBOLT_NAME} ${LIB_GRAPHBOLT_CUDA_NAME})
 endif()
 
-# TODO(tpopp): changed
-
 if(USE_ROCM)
-file(GLOB graphbolt_gpu_cache_src
-  ../third_party/HugeCTR/gpu_cache/src/nv_gpu_cache.cu
-)
- set_source_files_properties(${graphbolt_gpu_cache_src} PROPERTIES LANGUAGE HIP)
- add_library(graphbolt_gpu_cache STATIC ${graphbolt_gpu_cache_src})
- target_include_directories(graphbolt_gpu_cache PRIVATE "../third_party/HugeCTR/gpu_cache/include")
- target_compile_options(graphbolt_gpu_cache PRIVATE "-Wno-implicit-exception-spec-mismatch")
+  file(GLOB graphbolt_gpu_cache_src
+    ../third_party/HugeCTR/gpu_cache/src/nv_gpu_cache.cu
+    )
+  set_source_files_properties(${graphbolt_gpu_cache_src} PROPERTIES LANGUAGE HIP)
+  add_library(graphbolt_gpu_cache STATIC ${graphbolt_gpu_cache_src})
+  target_include_directories(graphbolt_gpu_cache PRIVATE "../third_party/HugeCTR/gpu_cache/include")
+  target_compile_options(graphbolt_gpu_cache PRIVATE "-Wno-implicit-exception-spec-mismatch")
 
 
 
-  # TODO(tpopp): hard dependency on kineto had to be manually changed in pip installed cmake
   file(GLOB BOLT_CUDA_EXTENSION_SRC
     ${BOLT_DIR}/cuda/extension/*.cu
     ${BOLT_DIR}/cuda/extension/*.cc
     ../third_party/HugeCTR/gpu_cache/src/nv_gpu_cache.cu
-  )
-  # TODO(tpopp): It seems like they were ignored earlier(?)
-  add_definitions(-DGRAPHBOLT_USE_ROCM)
-  add_definitions(-DDGL_USE_ROCM)
-  add_definitions(-DHIP_ENABLE_WARP_SYNC_BUILTINS)
+    )
   set_source_files_properties(${BOLT_CUDA_EXTENSION_SRC} PROPERTIES LANGUAGE HIP)
   add_library(${LIB_GRAPHBOLT_CUDA_NAME} STATIC ${BOLT_CUDA_EXTENSION_SRC} ${BOLT_HEADERS})
-  # target_include_directories(${LIB_GRAPHBOLT_CUDA_NAME}  PRIVATE "../third_party/HugeCTR/gpu_cache/include")
   target_link_libraries(${LIB_GRAPHBOLT_CUDA_NAME} PUBLIC "${TORCH_LIBRARIES}")
   target_link_libraries(${LIB_GRAPHBOLT_CUDA_NAME} PUBLIC graphbolt_gpu_cache)
-  # dgl_config_rocm(LIB_GRAPHBOLT_CUDA_NAME)
 
-  # set_target_properties(${LIB_GRAPHBOLT_NAME} PROPERTIES CUDA_STANDARD 17)
-  # set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES CUDA_STANDARD 17)
-  # set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES_FILTERED}")
   # TODO(tpopp): Enable for perf. Was producing failing code
   # target_compile_definitions(${LIB_GRAPHBOLT_CUDA_NAME} PRIVATE LIBCUDACXX_VERSION)
-  # set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-  # Enables libcudacxx for gpu_cache. 
-  message(STATUS "Build graphbolt extension with HugeCTR GPU embedding cache.")
+  set_target_properties(${LIB_GRAPHBOLT_CUDA_NAME} PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 
   include_directories(AFTER "../third_party/HugeCTR/gpu_cache/include")
   include_directories(
-     $<TARGET_PROPERTY:cuco,INTERFACE_INCLUDE_DIRECTORIES>
-     $<TARGET_PROPERTY:libhipcxx::libhipcxx,INTERFACE_INCLUDE_DIRECTORIES>
-     $<TARGET_PROPERTY:hipcub,INTERFACE_INCLUDE_DIRECTORIES>
-  )
+    $<TARGET_PROPERTY:cuco,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:hipcub,INTERFACE_INCLUDE_DIRECTORIES>
+    )
   target_link_libraries(${LIB_GRAPHBOLT_CUDA_NAME}  PRIVATE
-	  # libhipcxx::libhipcxx      # Assuming libhipcxx provides this target name.
     roc::rocthrust      # Replace with the appropriate target name if different.
     cuco # Adjust as necessary.
     hipcub         # Adjust as necessary.
     roc::rocprim_hip
     hip::device
     hip::host
-  )
-target_include_directories(${LIB_GRAPHBOLT_NAME}  PRIVATE "../third_party/pcg/include")
-target_include_directories(${LIB_GRAPHBOLT_NAME}  PRIVATE "../third_party/tsl_robin_map/include")
-target_include_directories(${LIB_GRAPHBOLT_NAME}  PRIVATE "../third_party/HugeCTR/gpu_cache/include")
+    )
 
-  message(STATUS "Use external ROCm libraries for a consistent API and performance for graphbolt.")
-  
   target_link_libraries(${LIB_GRAPHBOLT_NAME} ${LIB_GRAPHBOLT_CUDA_NAME} graphbolt_gpu_cache)
 endif()
 
