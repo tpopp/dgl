@@ -31,9 +31,21 @@
 #include <algorithm>
 #include <array>
 #include <cub/cub.cuh>
-#if __CUDA_ARCH__ >= 700
+#if defined(GRAPHBOLT_USE_ROCM) &&                    \
+    defined(__HIP_ARCH_HAS_GLOBAL_INT32_ATOMICS__) && \
+    defined(__HIP_ARCH_HAS_SHARED_INT32_ATOMICS__) && \
+    defined(__HIP_ARCH_HAS_GLOBAL_INT64_ATOMICS__) && \
+    defined(__HIP_ARCH_HAS_SHARED_INT64_ATOMICS__)
+#define __ATOMICS__ 1
+#elif __CUDA_ARCH__ >= 700
+#define __ATOMICS__ 1
+#else
+#define __ATOMICS__ 0
+#endif
+
+#if __ATOMICS__
 #include <cuda/atomic>
-#endif  // __CUDA_ARCH__ >= 700
+#endif  // __ATOMICS__
 #include <limits>
 #include <numeric>
 #include <type_traits>
@@ -94,13 +106,13 @@ __global__ void _ComputeRandomsNS(
     if (rnd < fanout) {
       const indptr_t edge_id =
           row_offset + (sliced_indptr ? sliced_indptr[row_position] : 0);
-#if __CUDA_ARCH__ >= 700
+#if __ATOMICS__
       ::cuda::atomic_ref<indptr_t, ::cuda::thread_scope_device> a(
           edge_ids[output_offset + rnd]);
       a.fetch_max(edge_id, ::cuda::std::memory_order_relaxed);
 #else
       AtomicMax(edge_ids + output_offset + rnd, edge_id);
-#endif  // __CUDA_ARCH__
+#endif  // __ATOMICS__
     }
 
     i += stride;
@@ -528,6 +540,23 @@ c10::intrusive_ptr<sampling::FusedSampledSubgraph> SampleNeighbors(
                   // Ensuring sort result still ends up in
                   // sorted_edge_id_segments
                   std::swap(edge_id_segments, sorted_edge_id_segments);
+#ifdef GRAPHBOLT_USE_ROCM
+                  auto sampled_segment_end_it = thrust::make_transform_iterator(
+                      iota,
+                      SegmentEndFunc<indptr_t, decltype(sampled_degree)>{
+                          sub_indptr.data_ptr<indptr_t>(), sampled_degree});
+                  auto sampled_segment_end_device =
+                      torch::empty_like(sub_indptr);
+                  THRUST_CALL(
+                      copy_n, sampled_segment_end_it, sub_indptr.size(0) - 1,
+                      sampled_segment_end_device.data_ptr<indptr_t>());
+                  CUB_CALL(
+                      DeviceSegmentedSort::SortKeys, edge_id_segments.get(),
+                      sorted_edge_id_segments.get(), picked_eids.size(0),
+                      num_rows, sub_indptr.data_ptr<indptr_t>(),
+                      sampled_segment_end_device.data_ptr<indptr_t>());
+                }
+#else
                   auto sampled_segment_end_it = thrust::make_transform_iterator(
                       iota,
                       SegmentEndFunc<indptr_t, decltype(sampled_degree)>{
@@ -538,6 +567,7 @@ c10::intrusive_ptr<sampling::FusedSampledSubgraph> SampleNeighbors(
                       num_rows, sub_indptr.data_ptr<indptr_t>(),
                       sampled_segment_end_it);
                 }
+#endif
 
                 auto input_buffer_it = thrust::make_transform_iterator(
                     iota, IteratorFunc<indptr_t, edge_id_t>{
