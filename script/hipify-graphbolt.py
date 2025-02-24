@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hipifies the DGL tensoradapter plugin for PyTorch
+"""Hipifies the DGL graphbolt plugin for PyTorch
 
 Instead of the generic HIPIFY tooling that we use for the rest of DGL, we use
 the PyTorch Hipify Python tooling. This is customized for some PyTorch-specific
@@ -19,15 +19,15 @@ import shutil
 
 from torch.utils.hipify import hipify_python
 
-TENSOR_ADAPTER_DIR = pathlib.Path(os.environ["DGL_HOME"]) / "tensoradapter"
+GRAPHBOLT_DIR = pathlib.Path(os.environ["DGL_HOME"]) / "graphbolt"
  
-for prehip_file in TENSOR_ADAPTER_DIR.rglob("*.prehip"):
+for prehip_file in GRAPHBOLT_DIR.rglob("*.prehip"):
     orig_file = prehip_file.with_suffix("")
     shutil.copy2(prehip_file, orig_file)
 
 hipify_result = hipify_python.hipify(
-    project_directory=str(TENSOR_ADAPTER_DIR),
-    output_directory=str(TENSOR_ADAPTER_DIR),
+    project_directory=str(GRAPHBOLT_DIR),
+    output_directory=str(GRAPHBOLT_DIR),
     is_pytorch_extension=True,
 )
 
@@ -42,5 +42,6 @@ for orig_path, result in hipify_result.items():
         content = f.read()
     # Do our own replacement. This is the only extra one we need.
     updated_content = content.replace("DGL_USE_CUDA", "DGL_USE_ROCM")
+    updated_content = content.replace("GRAPHBOLT_USE_CUDA", "GRAPHBOLT_USE_ROCM")
     with open(orig_path, "w") as f:
         f.write(updated_content)
