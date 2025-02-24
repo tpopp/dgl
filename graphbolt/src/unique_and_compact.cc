@@ -66,10 +66,8 @@ UniqueAndCompactBatched(
   if (all_on_gpu) {
     GRAPHBOLT_DISPATCH_CUDA_ONLY_DEVICE(
         c10::DeviceType::CUDA, "unique_and_compact", {
-          auto a = ops::UniqueAndCompactBatched(
+          return ops::UniqueAndCompactBatched(
               src_ids, dst_ids, unique_dst_ids, rank, world_size);
-
-	  return a;
         });
   }
   std::vector<

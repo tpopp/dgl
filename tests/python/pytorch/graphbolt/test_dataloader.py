@@ -88,7 +88,10 @@ def test_gpu_sampling_DataLoader(
             if platform == "win32"
             else "tcp://127.0.0.1:12345"
         )
+        # TODO(tpopp): torch behavior changed in at least version 2.6 and potentially 2.5.
+        # Still to be done, is updating Rfdiffusion to specify the backend as below if needed.
         thd.init_process_group(
+                backend='cpu:gloo,cuda:nccl',
             init_method=init_method,
             world_size=1,
             rank=0,

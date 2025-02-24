@@ -559,7 +559,6 @@ c10::intrusive_ptr<sampling::FusedSampledSubgraph> SampleNeighbors(
 		      sub_indptr.data_ptr<indptr_t>(), sampled_degree});
 		  // TODO(tpopp): hipCUB/rocprim do not support mixed iterator types. I couldn't find any performant way around this restriction.
 		  // This is almost guaranteed wrong currently
-		  // TORCH_CHECK(false, "TODO(tpopp): Maybe is correct now?");
 		  auto sampled_segment_end_device = torch::empty_like(sub_indptr);
 		  THRUST_CALL(
 				  copy_n, sampled_segment_end_it, sub_indptr.size(0)-1,

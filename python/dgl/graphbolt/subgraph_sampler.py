@@ -43,6 +43,9 @@ def all_to_all(outputs, inputs, group=None, async_op=False):
     calling it. The arguments have the permutation
     `rank, ..., world_size - 1, 0, ..., rank - 1` and we make it
     `0, world_size - 1` before calling `thd.all_to_all`."""
+    # TODO(tpopp): Initialize gloo backend if needed because this doesn't work witb newer torch versions.
+    if not (outputs[0].is_cuda or thd.is_gloo_available()):
+        thd.init_process_group('gloo')
     shift_fn = partial(_shift, group=group)
     outputs = shift_fn(list(outputs))
     inputs = shift_fn(list(inputs))
@@ -128,6 +131,15 @@ class SubgraphSampler(MiniBatchTransformer):
         *args,
         **kwargs,
     ):
+        # # TODO(tpopp): seeing if this is the problem. Takes us from 136-> failing
+        # import backend as F
+        # if not thd.is_initialized():
+        #     thd.init_process_group(
+        #             "gloo" if F.ctx() == F.cpu() else "nccl",
+        #             "tcp://127.0.0.1:12347",
+        #             world_size=1,
+        #             rank=0,
+        #             )
         async_op = kwargs.get("asynchronous", False)
         cooperative = kwargs.get("cooperative", False)
         preprocess_fn = partial(
@@ -214,7 +226,6 @@ class SubgraphSampler(MiniBatchTransformer):
     def _seeds_cooperative_exchange_1_wait_future(minibatch):
         world_size = thd.get_world_size()
         seeds = minibatch._seed_nodes
-        dev = minibatch.seeds.get_device()
         is_homogeneous = not isinstance(seeds, dict)
         if is_homogeneous:
             seeds = {"_N": seeds}
@@ -236,7 +247,7 @@ class SubgraphSampler(MiniBatchTransformer):
             minibatch._seeds_offsets = sorted_offsets
         else:
             minibatch._seeds_offsets = {"_N": minibatch._seeds_offsets}
-        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64, device=dev)
+        counts_sent = torch.empty(world_size * num_ntypes, dtype=torch.int64)
         for i, offsets in enumerate(minibatch._seeds_offsets.values()):
             counts_sent[
                 torch.arange(i, world_size * num_ntypes, num_ntypes)
@@ -315,6 +326,7 @@ class SubgraphSampler(MiniBatchTransformer):
         ) = self.sample_subgraphs(
             minibatch._seed_nodes, minibatch._seeds_timestamp
         )
+        # assert False, "Here?"
         return minibatch
 
     def sampling_stages(self, datapipe):

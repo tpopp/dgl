@@ -130,6 +130,7 @@ UniqueAndCompactBatchedHashMapBased(
   auto allocator = cuda::GetAllocator();
   auto stream = cuda::GetCurrentStream();
   auto scalar_type = src_ids.at(0).scalar_type();
+  // TODO(tpopp): Does this matter?
   constexpr int BLOCK_SIZE = 512;
   const auto num_batches = src_ids.size();
   static_assert(
@@ -157,12 +158,19 @@ UniqueAndCompactBatchedHashMapBased(
         auto offsets_ptr =
             pointers_and_offsets.data_ptr<int64_t>() + 3 * num_batches;
         for (std::size_t i = 0; i < num_batches; i++) {
+	  // [0] = undef
           pointers_ptr[2 * i] = unique_dst_ids.at(i).data_ptr<index_t>();
+	  // [3] = 0
           offsets_ptr[2 * i] = unique_dst_ids[i].size(0);
+	  // [1] = ptr
           pointers_ptr[2 * i + 1] = src_ids.at(i).data_ptr<index_t>();
+	  // [4] = 4
           offsets_ptr[2 * i + 1] = src_ids[i].size(0);
+	  // [2] = undef
           pointers_ptr[2 * num_batches + i] = dst_ids.at(i).data_ptr<index_t>();
+	  // [5] = 0
           offsets_ptr[2 * num_batches + i] = dst_ids[i].size(0);
+	  // [6] undef
         }
         // Finish computing the offsets by taking a cumulative sum.
         std::exclusive_scan(
@@ -243,8 +251,6 @@ UniqueAndCompactBatchedHashMapBased(
             unique_ids_offsets_dev.data_ptr<int64_t>();
         // TODO(tpopp): added tabulate_output_iterator to hipCUB and changed proclaim_return_type
 	// This is essentially untested code in make_tabulate_output_iterator
-	  // TORCH_CHECK(
-	  //     false, "TPOPP: tests/python/pytorch/graphbolt/impl/test_sampled_subgraph_impl.py reaches here?");
         auto output_it = thrust::make_tabulate_output_iterator(
             ::proclaim_return_type<void>(
                 [=, unique_ids_ptr = unique_ids.data_ptr<index_t>(),
@@ -267,7 +273,7 @@ UniqueAndCompactBatchedHashMapBased(
                   ref.fetch_min(i, ::cuda::memory_order_relaxed);
                 }));
         CUB_CALL(
-            DeviceSelect::If, input_it, input_it,
+            DeviceSelect::If, input_it, output_it,
             unique_ids_offsets_dev_ptr + num_batches,
             offsets_ptr[2 * num_batches],
 	    // TODO(tpopp): removed cuda namespace
@@ -280,6 +286,7 @@ UniqueAndCompactBatchedHashMapBased(
         {
           auto unique_ids_offsets_dev2 =
               torch::empty_like(unique_ids_offsets_dev);
+	  // Divergence seen here
           CUB_CALL(
               DeviceScan::InclusiveScan,
               thrust::make_reverse_iterator(
@@ -329,6 +336,7 @@ UniqueAndCompactBatchedHashMapBased(
             results;
         unique_ids_offsets_event.synchronize();
         auto unique_ids_offsets_ptr = unique_ids_offsets.data_ptr<int64_t>();
+	// TODO(tpopp): All values are wrong
         for (int64_t i = 0; i < num_batches; i++) {
           results.emplace_back(
               unique_ids.slice(

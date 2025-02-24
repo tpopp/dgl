@@ -66,4 +66,4 @@ if [[ -z $@ ]]; then
   exit 1
 fi
 
-ltrace -C python3 -m pytest $@
+python3 -m pytest $@
