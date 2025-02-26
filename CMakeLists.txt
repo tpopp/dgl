@@ -581,8 +581,9 @@ if(BUILD_GRAPHBOLT)
       USE_CUDA=${USE_CUDA}
       USE_ROCM=${USE_ROCM}
       USE_LIBURING=${USE_LIBURING}
-      AMDGPU_TARGETS=${AMDGPU_TARGETS}
-      GPU_TARGETS=${GPU_TARGETS}
+      # Note: both GPU_TARGETS and CMAKE_HIP_ARCHITECTURES are set.
+      # Likely, we are accidentally compiling the HIP targets with two compatible but different drivers.
+      # GPU_TARGETS=${GPU_TARGETS}
       CMAKE_HIP_ARCHITECTURES=${CMAKE_HIP_ARCHITECTURES}
       CMAKE_HIP_FLAGS=${CMAKE_HIP_FLAGS}
       CMAKE_C_COMPILER=${CMAKE_C_COMPILER}
